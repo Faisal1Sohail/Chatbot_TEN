@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <title>Chatbot using Python</title>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0,0" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@48,400,1,0" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f2f2f2;
+        }
+
+        .chatbot-toggler {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background-color: #007bff;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chatbot-toggler span {
+            font-size: 30px;
+            color: white;
+        }
+
+        .chatbot {
+            display: none;
+            position: fixed;
+            bottom: 90px;
+            right: 30px;
+            width: 450px;
+            background-color: white;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+
+        .chatbot.active {
+            display: block;
+        }
+
+        .chatbot header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background-color: #007bff;
+            color: white;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+        }
+
+        .chatbot header h2 {
+            margin: 0;
+        }
+
+        .chatbox {
+            list-style: none;
+            margin: 0;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+        }
+        .chatbox .chat {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .chatbox .chat p {
+            background-color: #f1f1f1;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 0;
+        }
+
+        .chatbox .chat.outgoing {
+            justify-content: flex-end;
+        }
+
+        .chatbox .chat.outgoing p {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .chatbox .chat.incoming {
+            justify-content: flex-start;
+        }
+
+        .chatbox .chat.incoming p {
+            background-color: #f1f1f1;
+        }
+
+        .chatbox .chat .material-symbols-outlined {
+            margin-right: 10px;
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #ccc;
+        }
+
+        .chat-input textarea {
+            width: 100%;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            outline: none;
+            resize: none;
+        }
+
+        #send-btn {
+            cursor: pointer;
+            margin-left: 10px;
+            color: #007bff;
+        }
+
+        .material-symbols-outlined,
+        .material-symbols-rounded {
+            cursor: pointer;
+        }
+
+        #navigation {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+        }
+
+        #navigation button {
+            flex: 1;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 0 5px;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #navigation button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <button class="chatbot-toggler">
+        <span class="material-symbols-rounded">mode_comment</span>
+    </button>
+
+    <div class="chatbot">
+        <header>
+            <h2>Chatbot</h2>
+            <span class="close-btn material-symbols-outlined">close</span>
+        </header>
+        <ul class="chatbox">
+           
+        </ul>
+        <div class="chat-input">
+            <textarea id="chat-input" placeholder="Enter a message..." spellcheck="false" required></textarea>
+            <span id="send-btn" class="material-symbols-rounded">send</span>
+        </div>
+        <div id="navigation">
+            <button id="prev-btn" onclick="previousQuestions()">Previous</button>
+            <button id="next-btn" onclick="nextQuestions()">Next</button>
+        </div>
+    </div>
+
+    <script>
+        let currentQuestionIndex = 0;
+        const questionsPerPage = 4;
+        let questions = [];
+
+        document.querySelector('.chatbot-toggler').addEventListener('click', () => {
+            document.querySelector('.chatbot').classList.toggle('active');
+        });
+
+        document.querySelector('.close-btn').addEventListener('click', () => {
+            document.querySelector('.chatbot').classList.remove('active');
+        });
+        const appendMessage = (message, type) => {
+            const chatbox = document.querySelector('.chatbox');
+            const chatLi = document.createElement('li');
+            chatLi.className = `chat ${type}`;
+            chatLi.innerHTML = `<p>${message}</p>`;
+
+            chatbox.appendChild(chatLi);
+            chatbox.scrollTo(0, chatbox.scrollHeight); 
+            return chatLi;
+        };
+             const handleChat = async (userMessage) => {
+         userMessage = userMessage.trim();
+         if (!userMessage) return;
+         appendMessage(userMessage, "outgoing");
+         const incomingMessage = appendMessage("Thinking...", "incoming");
+         const response = await fetch('/ask', {
+             method: 'POST',
+             headers: {
+                 'Content-Type': 'application/json',
+             },
+             body: JSON.stringify({ message: userMessage }),
+         });
+
+         const data = await response.json();
+         generateResponse(incomingMessage, data.response, data.should_close);
+     };
+    const generateResponse = (incomingMessage, answer, shouldClose) => {
+        incomingMessage.querySelector('p').textContent = answer;
+
+
+        if (shouldClose) {
+            setTimeout(() => {
+                document.querySelector('.chatbot').classList.remove('active');
+             
+                window.location.reload(); 
+            }, 1500);
+        }
+    };
+        const loadQuestions = async () => {
+            const response = await fetch('/questions');
+            const data = await response.json();
+            questions = data.questions;
+            displayCurrentQuestions();
+        };
+        const displayCurrentQuestions = () => {
+            clearChatbox();
+            const chatbox = document.querySelector('.chatbox');
+
+            const start = currentQuestionIndex;
+            const end = Math.min(currentQuestionIndex + questionsPerPage, questions.length);
+
+            if (questions.length > 0) {
+                for (let i = start; i < end; i++) {
+                    appendQuestion(questions[i]);
+                }
+            }
+        };
+        const appendQuestion = (question) => {
+            const chatbox = document.querySelector('.chatbox');
+            const chatLi = document.createElement('li');
+            chatLi.className = `chat incoming`; 
+            chatLi.innerHTML = `<p>${question}</p>`;
+            chatLi.style.cursor = 'pointer';
+
+            chatLi.addEventListener('click', () => {
+                handleChat(question); 
+            });
+
+            chatbox.appendChild(chatLi);
+        };
+        const clearChatbox = () => {
+            const chatbox = document.querySelector('.chatbox');
+            chatbox.innerHTML = '';
+        };
+        const nextQuestions = () => {
+            if (currentQuestionIndex + questionsPerPage < questions.length) {
+                currentQuestionIndex += questionsPerPage;
+                displayCurrentQuestions();
+            }
+        };
+        const previousQuestions = () => {
+            if (currentQuestionIndex - questionsPerPage >= 0) {
+                currentQuestionIndex -= questionsPerPage;
+                displayCurrentQuestions();
+            }
+        };
+        loadQuestions();
+        document.getElementById('send-btn').addEventListener('click', () => {
+            const userMessage = document.getElementById('chat-input').value;
+            document.getElementById('chat-input').value = ""; 
+            handleChat(userMessage);
+        });
+
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const userMessage = document.getElementById('chat-input').value;
+                document.getElementById('chat-input').value = ""; 
+                handleChat(userMessage);
+            }
+        });
+    </script>
+</body>
+</html>
